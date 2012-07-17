@@ -8,16 +8,18 @@
 
 typedef enum TetrominoType { I = 1, J, L, O, S, T, Z } TetrominoType;
 
+typedef enum Direction { LEFT = 1, RIGHT } Direction;
+
 typedef struct
 {
-    int horizOffset;
-    int vertOffset;
+    int rowOffset;
+    int colOffset;
 } SquareOffset;
 
 typedef struct
 {
     int row;
-    int column;
+    int col;
 } TetrominoPosition;
 
 typedef struct
@@ -40,9 +42,9 @@ typedef struct
 
 typedef struct
 {
-    SDL_Rect levelRect;
     SDL_Surface *screen;
     SDL_Surface *bitmap;
+    SDL_Surface *board;
 } Graphicsdata;
 
 SquareOffset I_Offsets[4] = { {0, 0}, {1, 0}, {2, 0}, {3, 0} };
@@ -62,7 +64,7 @@ TetrominoPosition getInitialPostion( )
 {
     TetrominoPosition tp;
     tp.row = 0;
-    tp.column = 3;
+    tp.col = 3;
     return tp;
 }
 
@@ -127,11 +129,12 @@ void drawTetromino( Tetromino tm )
     SDL_Rect drawer;;
     for( int i = 0; i < 4; ++i )
     {    
-        drawer.x = GAME_AREA_LEFT + ( tm.pos.column + tm.offsets[i].horizOffset ) * SQUARE_SIDE;
-        drawer.y = ( tm.pos.row + tm.offsets[i].vertOffset ) * SQUARE_SIDE;
+        drawer.x = ( tm.pos.col + tm.offsets[i].colOffset ) * SQUARE_SIDE;
+        drawer.y = ( tm.pos.row + tm.offsets[i].rowOffset ) * SQUARE_SIDE;
         drawer.w = SQUARE_SIDE;
         drawer.h = SQUARE_SIDE;
         SDL_BlitSurface( gfxdata.bitmap, &( gamedata.curTm.square ), gfxdata.screen, &drawer );
+        SDL_UpdateRect( gfxdata.screen, 0, 0, 0, 0 );
     }
 }
 
@@ -139,7 +142,7 @@ void updateBoard( Tetromino tm )
 {
     for( int i = 0; i < 4; i++ )
     {
-        gamedata.board[tm.pos.row + tm.offsets[i].horizOffset][tm.pos.column + tm.offsets[i].vertOffset] = 1;
+        gamedata.board[tm.pos.row + tm.offsets[i].rowOffset][tm.pos.col + tm.offsets[i].colOffset] = 1;
     }
 }
 
@@ -167,26 +170,73 @@ void initializeDisplay( )
     gfxdata.screen = SDL_SetVideoMode( WINDOW_WIDTH, WINDOW_HEIGHT, 0, 0 );
     SDL_Surface* tmp = SDL_LoadBMP( "data/tetris.bmp" );
     gfxdata.bitmap = SDL_DisplayFormat( tmp );
+    tmp = SDL_LoadBMP( "data/bg.bmp" );
+    gfxdata.board = SDL_DisplayFormat( tmp );
     SDL_FreeSurface( tmp );
-    gfxdata.levelRect.x = 0;
-    gfxdata.levelRect.y = 0;
-    gfxdata.levelRect.w = 300;
-    gfxdata.levelRect.h = 396;
-    SDL_BlitSurface( gfxdata.bitmap, &(gfxdata.levelRect), gfxdata.screen, NULL );
+    SDL_BlitSurface( gfxdata.board, NULL, gfxdata.screen, NULL );
     drawTetromino( gamedata.curTm );
     SDL_UpdateRect( gfxdata.screen, 0, 0, 0, 0 );
+}
+
+TetrominoPosition getNewPosition( TetrominoPosition oldPos, Direction dir )
+{
+    TetrominoPosition newPos;
+    switch( dir )
+    {
+        case LEFT:
+            newPos.row = oldPos.row + 1;
+            newPos.col = oldPos.col - 1;
+            break;
+        case RIGHT:
+            newPos.row = oldPos.row + 1;
+            newPos.col = oldPos.col + 1;
+            break;
+        default:
+            newPos.row = oldPos.row + 1;
+            newPos.col = oldPos.col;
+            break;
+    }
+    return newPos;
+}
+
+void progressGame( )
+{
+    gamedata.curTm.pos = getNewPosition( gamedata.curTm.pos, 0 );
+    updateBoard( gamedata.curTm );
+}
+
+void updateDisplay( )
+{
+    SDL_BlitSurface( gfxdata.board, NULL, gfxdata.screen, NULL );
+    drawTetromino( gamedata.curTm );
 }
 
 int main( int argc, char **argv )
 {
     initializeGame( );
     initializeDisplay( );
-    SDL_Delay( 5000 );
-//     while( 1 )
-//     {
-//         progressGame( );
-//         updateDisplay( );
-//     }
+    SDL_Event event;
+    int startTime = 0;
+    int over = 0;
+    startTime = SDL_GetTicks( );
+    printf( "%d\n", startTime );
+    while( !over )
+    {
+        while( SDL_PollEvent( &event ) )
+        {
+            if( event.type == SDL_QUIT )
+            {
+                over = 1;
+            }
+        }
+        if( SDL_GetTicks( ) - startTime > TIMESTEP )
+        {
+            progressGame( );
+            updateDisplay( );
+            startTime = SDL_GetTicks( );
+            printf( "%d\n", startTime );
+        }
+    }
     SDL_Quit( );
     return 0;
 }
