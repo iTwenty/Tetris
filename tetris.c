@@ -8,7 +8,7 @@
 
 typedef enum TetrominoType { I = 1, J, L, O, S, T, Z } TetrominoType;
 
-typedef enum Direction { LEFT = 1, RIGHT } Direction;
+typedef enum Direction { LEFT = 1, RIGHT, DOWN } Direction;
 
 typedef struct
 {
@@ -138,6 +138,88 @@ void drawTetromino( Tetromino tm )
     }
 }
 
+int getMaxOffset( Tetromino *tt, Direction dir )
+{
+    int maxOffset = 0;
+    switch( dir )
+    {
+        case( LEFT ):
+        {
+            maxOffset = 0;
+        }
+        case( RIGHT ):
+        {
+            for( int i = 0; i < 4; i++ )
+            {
+                if( tt->offsets[i].colOffset > maxOffset )
+                {
+                    maxOffset = tt->offsets[i].colOffset;
+                }
+            }
+        }
+        case( DOWN ):
+        {
+            for( int i = 0; i < 4; i++ )
+            {
+                if( tt->offsets[i].rowOffset > maxOffset )
+                {
+                    maxOffset = tt->offsets[i].rowOffset;
+                }
+            }
+        }
+    }
+    return maxOffset;
+}
+
+int canMove( Tetromino *tt, Direction moveDir )
+{
+    int retval = 0;
+    switch( moveDir )
+    {
+        case( LEFT ):
+        if( tt->pos.col > 0 )
+        {
+            retval = 1;
+        } break;
+        case( RIGHT ):
+        if( tt->pos.col < 10 - getMaxOffset( tt, RIGHT ) )
+        {
+            retval = 1;
+        } break;
+        case( DOWN ):
+        if( tt->pos.row < 15 - getMaxOffset( tt, DOWN ) )
+        {
+            retval = 1;
+        } break;
+    }
+    return retval;
+}
+
+void updatePosition( Tetromino *tt, Direction dir )
+{
+    switch( dir )
+    {
+        case LEFT:
+        if( canMove( tt, LEFT ) )
+        {
+            tt->pos.row = tt->pos.row + 1;
+            tt->pos.col = tt->pos.col - 1;
+        } break;
+        case RIGHT:
+        if( canMove( tt, RIGHT ) )
+        {
+            tt->pos.row = tt->pos.row + 1;
+            tt->pos.col = tt->pos.col + 1;
+        } break;
+        case DOWN:
+        if( canMove( tt, DOWN ) )
+        {
+            tt->pos.row = tt->pos.row + 1;
+            tt->pos.col = tt->pos.col;
+        } break;
+    }
+}
+
 void updateBoard( Tetromino tm )
 {
     for( int i = 0; i < 4; i++ )
@@ -146,6 +228,21 @@ void updateBoard( Tetromino tm )
     }
 }
 
+// These two functions get called each time the game progresses
+void progressGame( Direction dir )
+{
+    updatePosition( &(gamedata.curTm), dir );
+    updateBoard( gamedata.curTm );
+}
+
+void updateDisplay( )
+{
+    SDL_BlitSurface( gfxdata.board, NULL, gfxdata.screen, NULL );
+    drawTetromino( gamedata.curTm );
+}
+
+
+// These two functions get called only once to initialise game state and graphics
 void initializeGame( )
 {
     gamedata.level = 1;
@@ -178,39 +275,6 @@ void initializeDisplay( )
     SDL_UpdateRect( gfxdata.screen, 0, 0, 0, 0 );
 }
 
-TetrominoPosition getNewPosition( TetrominoPosition oldPos, Direction dir )
-{
-    TetrominoPosition newPos;
-    switch( dir )
-    {
-        case LEFT:
-            newPos.row = oldPos.row + 1;
-            newPos.col = oldPos.col - 1;
-            break;
-        case RIGHT:
-            newPos.row = oldPos.row + 1;
-            newPos.col = oldPos.col + 1;
-            break;
-        default:
-            newPos.row = oldPos.row + 1;
-            newPos.col = oldPos.col;
-            break;
-    }
-    return newPos;
-}
-
-void progressGame( )
-{
-    gamedata.curTm.pos = getNewPosition( gamedata.curTm.pos, 0 );
-    updateBoard( gamedata.curTm );
-}
-
-void updateDisplay( )
-{
-    SDL_BlitSurface( gfxdata.board, NULL, gfxdata.screen, NULL );
-    drawTetromino( gamedata.curTm );
-}
-
 int main( int argc, char **argv )
 {
     initializeGame( );
@@ -218,6 +282,7 @@ int main( int argc, char **argv )
     SDL_Event event;
     int startTime = 0;
     int over = 0;
+    Direction dir;
     startTime = SDL_GetTicks( );
     printf( "%d\n", startTime );
     while( !over )
@@ -228,10 +293,23 @@ int main( int argc, char **argv )
             {
                 over = 1;
             }
+            if( event.type == SDL_KEYDOWN )
+            {
+                switch( event.key.keysym.sym )
+                {
+                    case( SDLK_RIGHT ):
+                        dir = RIGHT; break;
+                    case( SDLK_LEFT ):
+                        dir = LEFT; break;
+                    default:
+                        dir = DOWN; break;
+                }
+            }
         }
         if( SDL_GetTicks( ) - startTime > TIMESTEP )
         {
-            progressGame( );
+            progressGame( dir );
+            dir = DOWN;
             updateDisplay( );
             startTime = SDL_GetTicks( );
             printf( "%d\n", startTime );
