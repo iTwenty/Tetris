@@ -74,7 +74,7 @@
 #define YELLOW_SQUARE_Y 400
 
 // Added by me
-#define TIMESTEP        1000
+#define TIMESTEP        300
 #define SQUARE_SIDE     20
 #define ROWS            15
 #define COLUMNS         10

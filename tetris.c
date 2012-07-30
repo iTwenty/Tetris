@@ -10,11 +10,18 @@ typedef enum TetrominoType { I = 1, J, L, O, S, T, Z } TetrominoType;
 
 typedef enum Direction { LEFT = 1, RIGHT, DOWN } Direction;
 
+typedef enum Boolean { FALSE, TRUE } Boolean;
+
 typedef struct
 {
     int rowOffset;
     int colOffset;
 } SquareOffset;
+
+typedef struct
+{
+    int maxHeight; 
+} BottomPile;
 
 typedef struct
 {
@@ -24,8 +31,16 @@ typedef struct
 
 typedef struct
 {
+    Direction moveDir;
+    Boolean shouldRotate;
+} InputData;
+
+typedef struct
+{
     TetrominoType type;
     SquareOffset offsets[4];
+    SquareOffset maxOffset;
+    SquareOffset rotnPt;
     TetrominoPosition pos;
     SDL_Rect square;
 } Tetromino;
@@ -47,19 +62,50 @@ typedef struct
     SDL_Surface *board;
 } Graphicsdata;
 
-SquareOffset I_Offsets[4] = { {0, 0}, {1, 0}, {2, 0}, {3, 0} };
-SquareOffset J_Offsets[4] = { {0, 1}, {1, 1}, {2, 1}, {2, 0} };
-SquareOffset L_Offsets[4] = { {0, 0}, {1, 0}, {2, 0}, {2, 1} };
-SquareOffset O_Offsets[4] = { {0, 0}, {0, 1}, {1, 0}, {1, 1} };
-SquareOffset S_Offsets[4] = { {0, 0}, {1, 0}, {1, 1}, {2, 1} };
-SquareOffset T_Offsets[4] = { {0, 1}, {1, 0}, {1, 1}, {1, 2} };
-SquareOffset Z_Offsets[4] = { {0, 1}, {1, 0}, {1, 1}, {2, 0} };
+SquareOffset I_Offsets[4] = {
+                              {0,0},
+                              {1,0},
+                              {2,0},
+                              {3,0}
+                            };
+                              
+SquareOffset J_Offsets[4] = {
+                                     {0,1},
+                                     {1,1},
+                              {2,0}, {2,1}
+                            };
+                          
+SquareOffset L_Offsets[4] = {
+                              {0,0},
+                              {1,0},
+                              {2,0}, {2,1}
+                            }; 
+SquareOffset O_Offsets[4] = {
+                              {0,0}, {0,1},
+                              {1,0}, {1,1}
+                            };
+SquareOffset S_Offsets[4] = {
+                              {0,0},
+                              {1,0}, {1,1},
+                                     {2,1}
+                            };
+SquareOffset T_Offsets[4] = {
+                                     {0,1},
+                              {1,0}, {1,1}, {1,2}
+                            };
+SquareOffset Z_Offsets[4] = {
+                                     {0,1},
+                              {1,0}, {1,1},
+                              {2,0}
+                            };
 
 Gamedata gamedata;
 Graphicsdata gfxdata;
 
 /***********************Define functions*************************/
 
+
+// Returns the initial starting postion of Tetromino's top left square
 TetrominoPosition getInitialPostion( )
 {
     TetrominoPosition tp;
@@ -68,6 +114,7 @@ TetrominoPosition getInitialPostion( )
     return tp;
 }
 
+// Returns a random Tetromino each time it is called
 Tetromino createTetromino( )
 {
     Tetromino tm;
@@ -80,42 +127,63 @@ Tetromino createTetromino( )
             memcpy( tm.offsets, I_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = RED_SQUARE_X;
             tm.square.y = RED_SQUARE_Y;
+            tm.maxOffset.rowOffset = 3;
+            tm.maxOffset.colOffset = 0;
+            tm.rotnPt = I_Offsets[0];
         }  break;
         case( J ):
         {
             memcpy( tm.offsets, J_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = PURPLE_SQUARE_X;
             tm.square.y = PURPLE_SQUARE_Y;
+            tm.maxOffset.rowOffset = 2;
+            tm.maxOffset.colOffset = 1;
+            tm.rotnPt = J_Offsets[0];
         }  break;
         case( L ):
         {
             memcpy( tm.offsets, L_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = GREY_SQUARE_X;
             tm.square.y = GREY_SQUARE_Y;
+            tm.maxOffset.rowOffset = 2;
+            tm.maxOffset.colOffset = 1;
+            tm.rotnPt = L_Offsets[0];
         }  break;
         case( O ):
         {
             memcpy( tm.offsets, O_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = BLUE_SQUARE_X;
             tm.square.y = BLUE_SQUARE_Y;
+            tm.maxOffset.rowOffset = 1;
+            tm.maxOffset.colOffset = 1;
+            tm.rotnPt = O_Offsets[0];
         }  break;
         case( S ):
         {
             memcpy( tm.offsets, S_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = GREEN_SQUARE_X;
             tm.square.y = GREEN_SQUARE_Y;
+            tm.maxOffset.rowOffset = 2;
+            tm.maxOffset.colOffset = 1;
+            tm.rotnPt = S_Offsets[0];
         }  break;
         case( T ):
         {
             memcpy( tm.offsets, T_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = BLACK_SQUARE_X;
             tm.square.y = BLACK_SQUARE_Y;
+            tm.maxOffset.rowOffset = 1;
+            tm.maxOffset.colOffset = 2;
+            tm.rotnPt = T_Offsets[0];
         }  break;
         case( Z ):
         {
             memcpy( tm.offsets, Z_Offsets, sizeof(SquareOffset) * 4 );
             tm.square.x = YELLOW_SQUARE_X;
             tm.square.y = YELLOW_SQUARE_Y;
+            tm.maxOffset.rowOffset = 2;
+            tm.maxOffset.colOffset = 1;
+            tm.rotnPt = Z_Offsets[0];
         }  break;
     }
     tm.square.w = SQUARE_SIDE;
@@ -124,6 +192,14 @@ Tetromino createTetromino( )
     return tm;
 }
 
+// Resets the input data to prepare for next progression
+void resetInputData( InputData *in )
+{
+    in->moveDir = DOWN;
+    in->shouldRotate = FALSE;
+}
+
+// Draws the tetromino squares based on its position and square offsets
 void drawTetromino( Tetromino tm )
 {
     SDL_Rect drawer;;
@@ -138,88 +214,61 @@ void drawTetromino( Tetromino tm )
     }
 }
 
-int getMaxOffset( Tetromino *tt, Direction dir )
-{
-    int maxOffset = 0;
-    switch( dir )
-    {
-        case( LEFT ):
-        {
-            maxOffset = 0;
-        }
-        case( RIGHT ):
-        {
-            for( int i = 0; i < 4; i++ )
-            {
-                if( tt->offsets[i].colOffset > maxOffset )
-                {
-                    maxOffset = tt->offsets[i].colOffset;
-                }
-            }
-        }
-        case( DOWN ):
-        {
-            for( int i = 0; i < 4; i++ )
-            {
-                if( tt->offsets[i].rowOffset > maxOffset )
-                {
-                    maxOffset = tt->offsets[i].rowOffset;
-                }
-            }
-        }
-    }
-    return maxOffset;
-}
+// void rotateTetromino( Tetromino *tt, Boolean shouldRotate )
+// {
+//     if( !shouldRotate )
+//         return;
+//     
+// }
 
-int canMove( Tetromino *tt, Direction moveDir )
+// Returns true if tetromino can move in given direction 
+Boolean canMove( Tetromino *tt, Direction moveDir )
 {
-    int retval = 0;
+    Boolean retval = FALSE;
     switch( moveDir )
     {
         case( LEFT ):
         if( tt->pos.col > 0 )
         {
-            retval = 1;
+            retval = TRUE;
         } break;
         case( RIGHT ):
-        if( tt->pos.col < 10 - getMaxOffset( tt, RIGHT ) )
+        if( tt->pos.col < (COLUMNS - 1) - tt->maxOffset.colOffset )
         {
-            retval = 1;
+            retval = TRUE;
         } break;
         case( DOWN ):
-        if( tt->pos.row < 15 - getMaxOffset( tt, DOWN ) )
+        if( tt->pos.row < (ROWS -1) - tt->maxOffset.rowOffset )
         {
-            retval = 1;
+            retval = TRUE;
         } break;
     }
     return retval;
 }
 
-void updatePosition( Tetromino *tt, Direction dir )
+// Actually moves the tetromino in given direction
+void move( Tetromino *tt, Direction dir )
 {
     switch( dir )
     {
         case LEFT:
-        if( canMove( tt, LEFT ) )
-        {
-            tt->pos.row = tt->pos.row + 1;
-            tt->pos.col = tt->pos.col - 1;
-        } break;
+            tt->pos.col = tt->pos.col - 1; break;
         case RIGHT:
-        if( canMove( tt, RIGHT ) )
-        {
-            tt->pos.row = tt->pos.row + 1;
-            tt->pos.col = tt->pos.col + 1;
-        } break;
+            tt->pos.col = tt->pos.col + 1; break;
         case DOWN:
-        if( canMove( tt, DOWN ) )
-        {
-            tt->pos.row = tt->pos.row + 1;
-            tt->pos.col = tt->pos.col;
-        } break;
+            tt->pos.row = tt->pos.row + 1; break;
     }
 }
 
+
+// Wrapper to previous two moving functions
+void updatePosition( Tetromino *tt, Direction dir )
+{
+    if( canMove( tt, dir ) )
+        move( tt, dir );
+}
+
+// Updates the game-board to reflect current position of tetromino
 void updateBoard( Tetromino tm )
 {
     for( int i = 0; i < 4; i++ )
@@ -229,9 +278,10 @@ void updateBoard( Tetromino tm )
 }
 
 // These two functions get called each time the game progresses
-void progressGame( Direction dir )
+void progressGame( InputData inputdata )
 {
-    updatePosition( &(gamedata.curTm), dir );
+    updatePosition( &(gamedata.curTm), inputdata.moveDir );
+    updatePosition( &(gamedata.curTm), DOWN );
     updateBoard( gamedata.curTm );
 }
 
@@ -248,13 +298,6 @@ void initializeGame( )
     gamedata.level = 1;
     gamedata.score = 0;
     gamedata.speed = INITIAL_SPEED;
-    for( int i = 0; i < ROWS; i++ )
-    {
-        for( int j = 0; j < COLUMNS; j++ )
-        {
-            gamedata.board[i][j] = 0;
-        }
-    }
     gamedata.curTm = createTetromino( );
     gamedata.nxtTm = createTetromino( );
     updateBoard( gamedata.curTm );
@@ -272,9 +315,10 @@ void initializeDisplay( )
     SDL_FreeSurface( tmp );
     SDL_BlitSurface( gfxdata.board, NULL, gfxdata.screen, NULL );
     drawTetromino( gamedata.curTm );
-    SDL_UpdateRect( gfxdata.screen, 0, 0, 0, 0 );
 }
 
+
+// Main enters the scene...
 int main( int argc, char **argv )
 {
     initializeGame( );
@@ -282,9 +326,8 @@ int main( int argc, char **argv )
     SDL_Event event;
     int startTime = 0;
     int over = 0;
-    Direction dir;
+    InputData inputdata = { DOWN, FALSE };
     startTime = SDL_GetTicks( );
-    printf( "%d\n", startTime );
     while( !over )
     {
         while( SDL_PollEvent( &event ) )
@@ -298,19 +341,19 @@ int main( int argc, char **argv )
                 switch( event.key.keysym.sym )
                 {
                     case( SDLK_RIGHT ):
-                        dir = RIGHT; break;
+                        inputdata.moveDir = RIGHT; break;
                     case( SDLK_LEFT ):
-                        dir = LEFT; break;
+                        inputdata.moveDir = LEFT; break;
                     default:
-                        dir = DOWN; break;
+                        inputdata.moveDir = 0; break;
                 }
             }
         }
         if( SDL_GetTicks( ) - startTime > TIMESTEP )
         {
-            progressGame( dir );
-            dir = DOWN;
+            progressGame( inputdata );
             updateDisplay( );
+            resetInputData( &inputdata );
             startTime = SDL_GetTicks( );
             printf( "%d\n", startTime );
         }
