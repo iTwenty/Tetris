@@ -214,12 +214,23 @@ void drawTetromino( Tetromino tm )
     }
 }
 
-// void rotateTetromino( Tetromino *tt, Boolean shouldRotate )
-// {
-//     if( !shouldRotate )
-//         return;
-//     
-// }
+SquareOffset rotateSquare( SquareOffset square, SquareOffset about )
+{
+    SquareOffset newSquare;
+    newSquare.colOffset = square.rowOffset + ( about.colOffset - about.rowOffset );
+    newSquare.rowOffset = - square.colOffset +( about.colOffset + about.rowOffset );
+    return newSquare;
+}
+
+void rotateTetromino( Tetromino *tt, Boolean shouldRotate )
+{
+    if( !shouldRotate )
+        return;
+    for( int i = 0; i < 4; ++i )
+    {
+        tt->offsets[i] = rotateSquare( tt->offsets[i], tt->rotnPt );
+    }
+}
 
 // Returns true if tetromino can move in given direction 
 Boolean canMove( Tetromino *tt, Direction moveDir )
@@ -282,6 +293,7 @@ void progressGame( InputData inputdata )
 {
     updatePosition( &(gamedata.curTm), inputdata.moveDir );
     updatePosition( &(gamedata.curTm), DOWN );
+    rotateTetromino( &(gamedata.curTm), inputdata.shouldRotate );
     updateBoard( gamedata.curTm );
 }
 
@@ -344,8 +356,11 @@ int main( int argc, char **argv )
                         inputdata.moveDir = RIGHT; break;
                     case( SDLK_LEFT ):
                         inputdata.moveDir = LEFT; break;
+                    case( SDLK_SPACE ):
+                        inputdata.shouldRotate = TRUE; break;
                     default:
-                        inputdata.moveDir = 0; break;
+                        inputdata.moveDir = DOWN;
+                        inputdata.shouldRotate = FALSE;
                 }
             }
         }
